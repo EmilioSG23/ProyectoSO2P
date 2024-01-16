@@ -1,8 +1,9 @@
 NAME = apagon
-DEPS = 
+DEPS = central.h
+OBJECTS = central.o lluvia.o
 
-$(NAME): $(NAME).o $(DEPS)
-	gcc -o $@ $(NAME).o 
+$(NAME): $(NAME).o $(OBJECTS) $(DEPS)
+	gcc -o $@ $(NAME).o $(OBJECTS) -lpthread
 
 test: test.o $(DEPS)
 	gcc -o test test.o

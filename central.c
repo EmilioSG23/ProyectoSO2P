@@ -3,14 +3,17 @@
 
 #include "central.h"
 
-struct Central iniciar_central (int tipo, int cota_minima, int cota_maxima, double cantidad_embalse, int generacion){
+struct Central iniciar_central (int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion){
     struct Central central;
     central.tipo = tipo;
     central.cota_minima = cota_minima;
     central.cota_maxima = cota_maxima;
-    central.cantidad_embalse = cantidad_embalse;
     central.generacion = generacion;
+
     central.activado = false;
+    central.cantidad_embalse = cantidad_embalse;
+    central.duracion_lluvia = 0;
+    
     return central;
 }
 
@@ -27,7 +30,12 @@ struct Central iniciar_central_tipo (int tipo){
     return central;
 }
 
-void info_central (struct Central central){
-    printf("Central de tipo %d creada, con una cota mínima de %d m, cota máxima de %d m, embalse inicial de %f m, generación de %d MW/s.\n",
+void info_central_creada (struct Central central){
+    printf("Central de tipo %d creada, con una cota mínima de %d m, cota máxima de %d m, embalse inicial de %d m, generación de %d MW/s.\n",
             central.tipo, central.cota_minima, central.cota_maxima,central.cantidad_embalse,central.generacion);
+}
+
+void info_central (struct Central* central){
+    printf ("La central de tipo %d genera %d MW/s, tiene un nivel de embalse de %d m.\n", central->tipo,
+         central->activado ? central->generacion : 0, central->cantidad_embalse);
 }

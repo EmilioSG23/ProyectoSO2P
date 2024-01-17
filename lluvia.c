@@ -3,7 +3,7 @@
 
 #include "lluvia.h"
 
-struct Lluvia empezar_lluvia (int modo, int duracion, int incremento){
+struct Lluvia iniciar_lluvia (int modo, int duracion, int incremento){
     struct Lluvia lluvia;
     lluvia.modo = modo;
     lluvia.duracion = duracion;
@@ -11,14 +11,14 @@ struct Lluvia empezar_lluvia (int modo, int duracion, int incremento){
     return lluvia;
 }
 
-struct Lluvia empezar_lluvia_modo (int modo){
+struct Lluvia iniciar_lluvia_modo (int modo){
     struct Lluvia lluvia;
-    if (modo == 1)
-        lluvia = empezar_lluvia (1, 10, 2);
-    else if (modo == 2)
-        lluvia = empezar_lluvia (2, 5, 4);
-    else
-        lluvia = empezar_lluvia (0, 0, 0);
+    if (modo == 1)      //Aguacero
+        lluvia = iniciar_lluvia (1, 10, 2);
+    else if (modo == 2) //Diluvio
+        lluvia = iniciar_lluvia (2, 5, 4);
+    else                //No lluvia
+        lluvia = iniciar_lluvia (0, 0, 0);
     return lluvia;
 }
 

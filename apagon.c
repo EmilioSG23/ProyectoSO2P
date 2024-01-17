@@ -23,6 +23,7 @@ typedef struct Hidroelectrica{
 }Hidroelectrica;
 
 Hidroelectrica hidroelectrica;
+struct Lluvia lluvias[3];
 
 Hidroelectrica crear_hidroelectrica (struct Central* centrales, int num_centrales){
     Hidroelectrica hidroelectrica;
@@ -34,7 +35,7 @@ Hidroelectrica crear_hidroelectrica (struct Central* centrales, int num_centrale
     return hidroelectrica;
 }
 
-struct Lluvia seleccionar_lluvia (struct Lluvia lluvias[3]){
+struct Lluvia seleccionar_lluvia (){
     srand(time(NULL));
     int rng = (rand() % 100);
 
@@ -53,6 +54,7 @@ struct Lluvia seleccionar_lluvia (struct Lluvia lluvias[3]){
 void* iniciarCentral (void* central_ptr){
     struct Central* central = (struct Central*) central_ptr;
     central->activado = true;
+    central->lluvia = lluvias [0];
     while (1) {
         if (central -> activado){
             generarElectricidad (central);
@@ -61,8 +63,23 @@ void* iniciarCentral (void* central_ptr){
             if (central->cantidad_embalse >= central->cota_minima)
                 reanudarCentral (central);
         }
+        iniciarLluvia (central);
+        if (central -> lluvia.modo != 0){
+            central -> cantidad_embalse += central -> lluvia.incremento;
+            central -> duracion_lluvia++ ;
+            if (central -> duracion_lluvia == central -> lluvia.duracion){
+                central -> duracion_lluvia = 0;
+                central -> lluvia = lluvias [0];
+            }
+        }
         sleep(1);
     }
+}
+
+void iniciarLluvia (struct Central* central){
+    struct Lluvia lluvia = seleccionar_lluvia();
+    if (lluvia.modo != 0)
+        central->lluvia = lluvia;
 }
 
 void reanudarCentral (struct Central* central){
@@ -86,7 +103,7 @@ void generarElectricidad (struct Central* central){
 
 void* monitorearElectricidad (){
     while(1){
-        printf ("Electricad producida: %f MW\n", hidroelectrica.generacion_total);
+        printf ("Electricidad producida: %f MW\n", hidroelectrica.generacion_total);
             
         if(hidroelectrica.generacion_total >= MIN_PRODUCCION && hidroelectrica.generacion_total <= MAX_PRODUCCION){
             if (!hidroelectrica.inicio_generado)
@@ -104,9 +121,9 @@ void* monitorearElectricidad (){
 }
 
 void iniciarHidroelectrica (){
-    struct Lluvia lluvias[3] = {iniciar_lluvia_modo (0), iniciar_lluvia_modo(1), iniciar_lluvia_modo(2)};
+    lluvias [0] = iniciar_lluvia_modo (0); lluvias [1] = iniciar_lluvia_modo (1); lluvias [2] = iniciar_lluvia_modo (2);
 
-    pthread_t sistema_monitoreo;
+    pthread_t sistema;
     pthread_t centrales_hilos [hidroelectrica.num_centrales];
 
     //Iniciar centrales y generación
@@ -116,12 +133,12 @@ void iniciarHidroelectrica (){
         pthread_create (&centrales_hilos[i], NULL, iniciarCentral, &hidroelectrica.centrales[i]);
     }
 
-    pthread_create (&sistema_monitoreo, NULL, monitorearElectricidad, NULL);
+    pthread_create (&sistema, NULL, monitorearElectricidad, NULL);
 
     //for (int i = 0; i < hidroelectrica.num_centrales; i++)
     //    pthread_join (centrales_hilos[i], NULL);
     
-    pthread_join (sistema_monitoreo, NULL);
+    pthread_join (sistema, NULL);
 
     for (int i = 0; i < hidroelectrica.num_centrales; i++)
         pthread_cancel (centrales_hilos[i]);

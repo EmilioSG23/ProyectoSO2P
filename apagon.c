@@ -17,13 +17,14 @@
 typedef struct Hidroelectrica{
     struct Central* centrales;
     int num_centrales;
-    double generacion_total;
+    int generacion_total;
     bool colapsado;
     bool inicio_generado;
 }Hidroelectrica;
 
 Hidroelectrica hidroelectrica;
 struct Lluvia lluvias[3];
+pthread_mutex_t generacion_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 Hidroelectrica crear_hidroelectrica (struct Central* centrales, int num_centrales){
     Hidroelectrica hidroelectrica;
@@ -56,16 +57,22 @@ void* iniciarCentral (void* central_ptr){
     central->activado = true;
     central->lluvia = lluvias [0];
     while (1) {
+        pthread_mutex_lock (&generacion_mutex);
         if (central -> activado){
+            
             generarElectricidad (central);
-            info_central (central);
+            
         }else{
             if (central->cantidad_embalse >= central->cota_minima)
                 reanudarCentral (central);
         }
-        iniciarLluvia (central);
+        pthread_mutex_unlock (&generacion_mutex);
+        //info_central (central);
+        iniciarLluviaCentral (central);
         if (central -> lluvia.modo != 0){
-            central -> cantidad_embalse += central -> lluvia.incremento;
+            central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? 
+                central -> cantidad_embalse + central -> lluvia.incremento: central -> cota_maxima;
+
             central -> duracion_lluvia++ ;
             if (central -> duracion_lluvia == central -> lluvia.duracion){
                 central -> duracion_lluvia = 0;
@@ -76,7 +83,7 @@ void* iniciarCentral (void* central_ptr){
     }
 }
 
-void iniciarLluvia (struct Central* central){
+void iniciarLluviaCentral (struct Central* central){
     struct Lluvia lluvia = seleccionar_lluvia();
     if (lluvia.modo != 0)
         central->lluvia = lluvia;
@@ -92,8 +99,9 @@ void suspenderCentral (struct Central* central){
 }
 
 void generarElectricidad (struct Central* central){
-    if (hidroelectrica.generacion_total + central -> generacion < MAX_PRODUCCION)
-        hidroelectrica.generacion_total += central -> generacion;
+    hidroelectrica.generacion_total += central -> generacion;
+    //if (hidroelectrica.generacion_total + central -> generacion < MAX_PRODUCCION)
+        
     central -> cantidad_embalse -= DECREMENTO_COTA;
     if (hidroelectrica.generacion_total >= MAX_PRODUCCION ||
         central -> cantidad_embalse <= central -> cota_minima || central -> cantidad_embalse > central -> cota_maxima){
@@ -101,10 +109,15 @@ void generarElectricidad (struct Central* central){
     }
 }
 
-void* monitorearElectricidad (){
+void* sistema_electrico (){
     while(1){
-        printf ("Electricidad producida: %f MW\n", hidroelectrica.generacion_total);
-            
+        for (int i = 0; i < hidroelectrica.num_centrales; i++)
+            info_central_s (hidroelectrica.centrales[i]);
+
+        pthread_mutex_lock (&generacion_mutex);
+        printf ("\e[1m\x1b[34mElectricidad producida: %d MW\x1b[0m\e[m\n\n", hidroelectrica.generacion_total);
+        pthread_mutex_unlock (&generacion_mutex);
+        
         if(hidroelectrica.generacion_total >= MIN_PRODUCCION && hidroelectrica.generacion_total <= MAX_PRODUCCION){
             if (!hidroelectrica.inicio_generado)
                 hidroelectrica.inicio_generado = true;
@@ -116,11 +129,12 @@ void* monitorearElectricidad (){
             hidroelectrica.colapsado = true;
             return 0;
         }
+        
         sleep(1);
     }
 }
 
-void iniciarHidroelectrica (){
+void iniciarSistemaElectrico (){
     lluvias [0] = iniciar_lluvia_modo (0); lluvias [1] = iniciar_lluvia_modo (1); lluvias [2] = iniciar_lluvia_modo (2);
 
     pthread_t sistema;
@@ -133,7 +147,8 @@ void iniciarHidroelectrica (){
         pthread_create (&centrales_hilos[i], NULL, iniciarCentral, &hidroelectrica.centrales[i]);
     }
 
-    pthread_create (&sistema, NULL, monitorearElectricidad, NULL);
+    usleep(500);
+    pthread_create (&sistema, NULL, sistema_electrico, NULL);
 
     //for (int i = 0; i < hidroelectrica.num_centrales; i++)
     //    pthread_join (centrales_hilos[i], NULL);
@@ -155,7 +170,7 @@ int main () {
     int num_centrales = (centrales != NULL) ? sizeof(centrales) / sizeof(centrales[0]) : 0;
     hidroelectrica = crear_hidroelectrica (centrales, num_centrales);
 
-    iniciarHidroelectrica();
+    iniciarSistemaElectrico ();
 
     return 0;
 }

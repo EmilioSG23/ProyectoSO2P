@@ -21,5 +21,6 @@ struct Central iniciar_central (int tipo, int cota_minima, int cota_maxima, int 
 struct Central iniciar_central_tipo (int tipo);
 void info_central_creacion (struct Central central);
 void info_central (struct Central* central);
+void info_central_s (struct Central central);
 
 #endif

@@ -39,3 +39,8 @@ void info_central (struct Central* central){
     printf ("La central de tipo %d genera %d MW/s, tiene un nivel de embalse de %d m.\n", central->tipo,
          central->activado ? central->generacion : 0, central->cantidad_embalse);
 }
+
+void info_central_s (struct Central central){
+    printf ("La central de tipo %d genera %d MW/s, tiene un nivel de embalse de %d m.\n", central.tipo,
+         central.activado ? central.generacion : 0, central.cantidad_embalse);
+}

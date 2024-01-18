@@ -26,12 +26,15 @@ typedef struct Hidroelectrica{
 Hidroelectrica hidroelectrica;
 struct Lluvia lluvias[3];
 pthread_mutex_t generacion_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t cond_central_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t* cond_central;
 
 //Headers
 void reanudar_central (struct Central* central);
 void suspender_central (struct Central* central);
 void generar_electricidad (struct Central* central);
 void iniciar_lluvia_central (struct Central* central);
+void gestionar_centrales ();
 
 Hidroelectrica crear_hidroelectrica (struct Central* centrales, int num_centrales){
     Hidroelectrica hidroelectrica;
@@ -46,9 +49,9 @@ Hidroelectrica crear_hidroelectrica (struct Central* centrales, int num_centrale
 struct Lluvia seleccionar_lluvia (){
     int rng = (rand() % 100);
 
-    int prob_no_lluvia = 50;
-    int prob_aguacero = 30;
-    int prob_diluvio = 20;
+    int prob_no_lluvia = lluvias[0].probabilidad;
+    int prob_aguacero = lluvias[1].probabilidad;
+    int prob_diluvio = lluvias[2].probabilidad;
 
     if (rng <= (prob_no_lluvia))
         return lluvias [0];
@@ -56,35 +59,6 @@ struct Lluvia seleccionar_lluvia (){
         return lluvias [1];
     else
         return lluvias [2];
-}
-
-void* iniciar_central (void* central_ptr){
-    struct Central* central = (struct Central*) central_ptr;
-    central->activado = true;
-    iniciar_lluvia_central (central);
-
-    while (!hidroelectrica.colapsado) {
-        info_central (central);
-        if (central -> activado){
-            pthread_mutex_lock (&generacion_mutex);
-            generar_electricidad (central);
-            pthread_mutex_unlock (&generacion_mutex);
-        }
-        
-        if ((central -> activado) && (central -> cantidad_embalse < central -> cota_minima))
-            suspender_central (central);
-
-        if (!(central -> activado) && (central->cantidad_embalse >= central->cota_minima))
-            reanudar_central (central);
-
-        central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? 
-            central -> cantidad_embalse + central -> lluvia.incremento: central -> cota_maxima;
-        central -> duracion_lluvia ++ ;
-        if (central -> duracion_lluvia >= central -> lluvia.duracion){
-            iniciar_lluvia_central (central);
-        }
-        sleep(1);
-    }
 }
 
 void iniciar_lluvia_central (struct Central* central){
@@ -109,13 +83,46 @@ void generar_electricidad (struct Central* central){
     central -> cantidad_embalse -= DECREMENTO_COTA;
 }
 
-void gestionar_centrales () {
+void* iniciar_central (void* central_ptr){
+    struct Central* central = (struct Central*) central_ptr;
+    central->activado = true;
+    iniciar_lluvia_central (central);
 
+    while (!hidroelectrica.colapsado) {
+        info_central (central);
+
+        if (central -> activado){
+            pthread_mutex_lock (&generacion_mutex);
+            generar_electricidad (central);
+            pthread_mutex_unlock (&generacion_mutex);
+        }
+        
+        if ((central -> activado) && (central -> cantidad_embalse < central -> cota_minima))
+            suspender_central (central);
+
+        if (!(central -> activado) && (central->cantidad_embalse >= central->cota_minima))
+            reanudar_central (central);
+
+        central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? 
+            central -> cantidad_embalse + central -> lluvia.incremento: central -> cota_maxima;
+        central -> duracion_lluvia ++ ;
+        if (central -> duracion_lluvia >= central -> lluvia.duracion){
+            iniciar_lluvia_central (central);
+        }
+        sleep(1);
+    }
 }
 
-void iniciar_sistema_electrico (){
-    lluvias [0] = iniciar_lluvia_modo (0); lluvias [1] = iniciar_lluvia_modo (1); lluvias [2] = iniciar_lluvia_modo (2);
+void iniciar_sistema_electrico (double probabilidades_lluvia [3]){
+    lluvias [0] = iniciar_lluvia_modo (0, probabilidades_lluvia [0]);
+    lluvias [1] = iniciar_lluvia_modo (1, probabilidades_lluvia [1]);
+    lluvias [2] = iniciar_lluvia_modo (2, probabilidades_lluvia [2]);
+
     pthread_t centrales_hilos [hidroelectrica.num_centrales];
+    cond_central = (pthread_cond_t*) malloc(hidroelectrica.num_centrales * sizeof(pthread_cond_t));
+    for (int i = 0; i < hidroelectrica.num_centrales; i++) 
+        pthread_cond_init(&cond_central[i], NULL);
+    
     int tiempo = 0;
     srand(time(NULL));
 
@@ -127,6 +134,9 @@ void iniciar_sistema_electrico (){
     }
     usleep(50*1000);   //Delay
     while(!hidroelectrica.colapsado){
+        // Enviar señales a los semáforos de las centrales
+        for (int i = 0; i < hidroelectrica.num_centrales; i++)
+            pthread_cond_signal(&cond_central[i]);
         
         pthread_mutex_lock (&generacion_mutex);
         printf ("\e[1m\x1b[34mElectricidad producida: %d MW, tiempo transcurrido: %d segundos.\x1b[0m\e[m\n\n", hidroelectrica.generacion_total, tiempo++);
@@ -158,10 +168,15 @@ void iniciar_sistema_electrico (){
 
 }
 
+void gestionar_centrales () {
+
+}
+
 int main () {
     int cantidad_h1, cantidad_h2, cantidad_h3 = 0;
     int num_centrales = -1;
 
+    //Ingreso de cantidad de centrales
     printf ("Ingrese cantidad de centrales de tipo:\n");
     while (num_centrales < 0){
         printf ("H1: "); scanf ("%d", &cantidad_h1);
@@ -189,8 +204,31 @@ int main () {
     if (num_centrales == 0){
         printf ("\e[1mNo hay centrales eléctricas para producir energía...\e[m\n");return 0;
     }
+
+    //Ingreso de probabilidades de lluvia
+    double probabilidades_lluvia [3] = {-1,-1,-1};
+
+    printf ("Ingrese probabilidades de lluvia (No lluvia, aguacero, diluvio) (Probabiidad entre 0 y 1):\n");
+    while (probabilidades_lluvia [0] < 0 || probabilidades_lluvia [0] > 1){
+        printf ("No lluvia: "); scanf ("%lf", &probabilidades_lluvia [0]);
+    }
+
+    if (probabilidades_lluvia [0] != 1){
+        while (probabilidades_lluvia [1] < 0 || probabilidades_lluvia [1] > (1 - probabilidades_lluvia [0])){
+            printf ("Aguacero: "); scanf ("%lf", &probabilidades_lluvia [1]);
+        }
+        probabilidades_lluvia [2] = 1 - (probabilidades_lluvia [0] + probabilidades_lluvia [1]);
+        printf ("Diluvio (se asigna automáticamente): %0.2f\n", probabilidades_lluvia [2]);
+    }else{
+        probabilidades_lluvia [1] = 0;
+        probabilidades_lluvia [2] = 0;
+        printf ("Aguacero asignado a %0.2f\n", probabilidades_lluvia [1]);
+        printf ("Diluvio asignado a %0.2f\n", probabilidades_lluvia [2]);
+    }
+    printf("\n");
+
     hidroelectrica = crear_hidroelectrica (centrales, num_centrales);
-    iniciar_sistema_electrico ();
+    iniciar_sistema_electrico (probabilidades_lluvia);
 
     return 0;
 }

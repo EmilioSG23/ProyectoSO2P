@@ -12,7 +12,6 @@ struct Central crear_central (int tipo, int cota_minima, int cota_maxima, int ca
 
     central.activado = false;
     central.cantidad_embalse = cantidad_embalse;
-    central.duracion_lluvia = 0;
     
     return central;
 }

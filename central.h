@@ -17,8 +17,8 @@ struct Central{
     struct Lluvia lluvia;       //Lluvia que cae, solo puede ser aguacero o diluvio
 };
 
-struct Central iniciar_central (int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion);
-struct Central iniciar_central_tipo (int tipo);
+struct Central crear_central (int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion);
+struct Central crear_central_tipo (int tipo);
 void info_central_creacion (struct Central central);
 void info_central (struct Central* central);
 

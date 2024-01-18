@@ -3,7 +3,7 @@
 
 #include "central.h"
 
-struct Central iniciar_central (int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion){
+struct Central crear_central (int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion){
     struct Central central;
     central.tipo = tipo;
     central.cota_minima = cota_minima;
@@ -17,14 +17,14 @@ struct Central iniciar_central (int tipo, int cota_minima, int cota_maxima, int 
     return central;
 }
 
-struct Central iniciar_central_tipo (int tipo){
+struct Central crear_central_tipo (int tipo){
     struct Central central;
     if (tipo == 1)
-        central = iniciar_central (1,50,200,(50+200)/2,15);
+        central = crear_central (1,50,200,(50+200)/2,15);
     else if (tipo == 2)
-        central = iniciar_central (2,25,100,(25+100)/2,5);
+        central = crear_central (2,25,100,(25+100)/2,5);
     else if (tipo == 3)
-        central = iniciar_central (3,10,50,(10+50)/2,2);
+        central = crear_central (3,10,50,(10+50)/2,2);
     else
         printf("No es posible crear una central de tipo %d, solo de 1, 2, 3.\n", tipo);
     return central;

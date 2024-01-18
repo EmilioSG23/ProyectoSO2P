@@ -10,7 +10,7 @@
 
 #define MAX_PRODUCCION 150
 #define MIN_PRODUCCION 100
-#define CONSUMO_ELECTRICIDAD 5
+#define CONSUMO_ELECTRICIDAD 10
 
 #define DECREMENTO_COTA 5
 
@@ -31,7 +31,6 @@ void reanudar_central (struct Central* central);
 void suspender_central (struct Central* central);
 void generar_electricidad (struct Central* central);
 void iniciar_lluvia_central (struct Central* central);
-
 
 Hidroelectrica crear_hidroelectrica (struct Central* centrales, int num_centrales){
     Hidroelectrica hidroelectrica;
@@ -59,7 +58,7 @@ struct Lluvia seleccionar_lluvia (){
         return lluvias [2];
 }
 
-void* iniciarCentral (void* central_ptr){
+void* iniciar_central (void* central_ptr){
     struct Central* central = (struct Central*) central_ptr;
     central->activado = true;
     central->lluvia = lluvias [0];
@@ -116,27 +115,22 @@ void consumir_electricidad () {
 }
 
 void gestionar_centrales () {
-    
+
 }
 
 void iniciar_sistema_electrico (){
     lluvias [0] = iniciar_lluvia_modo (0); lluvias [1] = iniciar_lluvia_modo (1); lluvias [2] = iniciar_lluvia_modo (2);
-    
     pthread_t centrales_hilos [hidroelectrica.num_centrales];
+
     //Iniciar centrales y generación
     for (int i = 0; i < hidroelectrica.num_centrales; i++){
         hidroelectrica.centrales[i].activado = true;
         printf ("\e[1m\x1b[36m¡La central de tipo %d ha iniciado a generar electricidad!\x1b[0m\e[m\n", hidroelectrica.centrales[i].tipo);
-        pthread_create (&centrales_hilos[i], NULL, iniciarCentral, &hidroelectrica.centrales[i]);
+        pthread_create (&centrales_hilos[i], NULL, iniciar_central, &hidroelectrica.centrales[i]);
     }
-
-    //for (int i = 0; i < hidroelectrica.num_centrales; i++)
-    //    pthread_join (centrales_hilos[i], NULL);
 
     while(!hidroelectrica.colapsado){
         usleep (500);
-        //for (int i = 0; i < hidroelectrica.num_centrales; i++)
-          //  info_central_s (hidroelectrica.centrales[i]);
         printf ("\e[1m\x1b[34mElectricidad producida: %d MW\x1b[0m\e[m\n", hidroelectrica.generacion_total);
         
         if(hidroelectrica.generacion_total >= MIN_PRODUCCION && hidroelectrica.generacion_total <= MAX_PRODUCCION){
@@ -159,9 +153,9 @@ void iniciar_sistema_electrico (){
 }
 
 int main () {
-    struct Central h1 = iniciar_central_tipo (1);
-    struct Central h2 = iniciar_central_tipo (2);
-    struct Central h3 = iniciar_central_tipo (3);
+    struct Central h1 = crear_central_tipo (1);
+    struct Central h2 = crear_central_tipo (2);
+    struct Central h3 = crear_central_tipo (3);
 
     struct Central centrales[] = {h1, h2, h3};
     //struct Central centrales[] = {h1};

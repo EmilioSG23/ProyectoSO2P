@@ -115,8 +115,8 @@ void consumir_electricidad () {
     hidroelectrica.generacion_total -= CONSUMO_ELECTRICIDAD;
 }
 
-void controlarCentrales () {
-
+void gestionar_centrales () {
+    
 }
 
 void iniciar_sistema_electrico (){
@@ -149,7 +149,7 @@ void iniciar_sistema_electrico (){
             hidroelectrica.colapsado = true;
             break;
         }
-        controlarCentrales();
+        gestionar_centrales();
         sleep(1);
     }
 

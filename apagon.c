@@ -139,7 +139,7 @@ void iniciar_sistema_electrico (){
           //  info_central_s (hidroelectrica.centrales[i]);
         printf ("\e[1m\x1b[34mElectricidad producida: %d MW\x1b[0m\e[m\n", hidroelectrica.generacion_total);
         
-        if(hidroelectrica.generacion_total >= MIN_PRODUCCION){
+        if(hidroelectrica.generacion_total >= MIN_PRODUCCION && hidroelectrica.generacion_total <= MAX_PRODUCCION){
             pthread_mutex_lock (&generacion_mutex);
             consumir_electricidad();
             pthread_mutex_unlock (&generacion_mutex);

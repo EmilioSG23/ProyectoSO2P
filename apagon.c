@@ -22,6 +22,7 @@ typedef struct Hidroelectrica{
     bool inicio_generado;
 }Hidroelectrica;
 
+//Variables globales
 Hidroelectrica hidroelectrica;
 struct Lluvia lluvias[3];
 pthread_mutex_t generacion_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -94,11 +95,11 @@ void iniciar_lluvia_central (struct Central* central){
 
 void reanudar_central (struct Central* central){
     central->activado = true;
-    printf ("\e[1m\x1b[32m¡La central de tipo %d ha sido reanudado!\x1b[0m\e[m\n", central->tipo);
+    printf ("\e[1m\x1b[32m¡La central #%d de tipo %d ha sido reanudado!\x1b[0m\e[m\n", central -> id, central->tipo);
 }
 void suspender_central (struct Central* central){
     central -> activado = false;
-    printf ("\e[1m\x1b[31m¡La central de tipo %d ha sido suspendido!\x1b[0m\e[m\n", central -> tipo);
+    printf ("\e[1m\x1b[31m¡La central #%d de tipo %d ha sido suspendido!\x1b[0m\e[m\n", central -> id, central -> tipo);
 }
 
 void generar_electricidad (struct Central* central){
@@ -121,7 +122,7 @@ void iniciar_sistema_electrico (){
     //Iniciar centrales y generación
     for (int i = 0; i < hidroelectrica.num_centrales; i++){
         hidroelectrica.centrales[i].activado = true;
-        printf ("\e[1m\x1b[36m¡La central de tipo %d ha iniciado a generar electricidad!\x1b[0m\e[m\n", hidroelectrica.centrales[i].tipo);
+        printf ("\e[1m\x1b[36m¡La central #%d de tipo %d ha iniciado a generar electricidad!\x1b[0m\e[m\n", hidroelectrica.centrales[i].id, hidroelectrica.centrales[i].tipo);
         pthread_create (&centrales_hilos[i], NULL, iniciar_central, &hidroelectrica.centrales[i]);
     }
     usleep(50*1000);   //Delay
@@ -129,13 +130,15 @@ void iniciar_sistema_electrico (){
         
         pthread_mutex_lock (&generacion_mutex);
         printf ("\e[1m\x1b[34mElectricidad producida: %d MW, tiempo transcurrido: %d segundos.\x1b[0m\e[m\n\n", hidroelectrica.generacion_total, tiempo++);
-        bool en_rango = hidroelectrica.generacion_total > MIN_PRODUCCION && hidroelectrica.generacion_total < MAX_PRODUCCION;
+        bool energia_minima = hidroelectrica.generacion_total > MIN_PRODUCCION;
+        bool energia_maxima = hidroelectrica.generacion_total < MAX_PRODUCCION;
         pthread_mutex_unlock (&generacion_mutex);
+        bool en_rango = energia_minima && energia_maxima;
+
+        if (!hidroelectrica.inicio_generado && energia_minima)
+                hidroelectrica.inicio_generado = true;
 
         if(en_rango){
-            if (!hidroelectrica.inicio_generado)
-                hidroelectrica.inicio_generado = true;
-                
             /*pthread_mutex_lock (&generacion_mutex);
             hidroelectrica.generacion_total -= CONSUMO_ELECTRICIDAD;
             pthread_mutex_unlock (&generacion_mutex);*/
@@ -156,16 +159,37 @@ void iniciar_sistema_electrico (){
 }
 
 int main () {
-    struct Central h1 = crear_central_tipo (1);
-    struct Central h2 = crear_central_tipo (2);
-    struct Central h3 = crear_central_tipo (3);
+    int cantidad_h1, cantidad_h2, cantidad_h3 = 0;
+    int num_centrales = -1;
 
-    struct Central centrales[] = {h1, h2, h3};
-    //struct Central centrales[] = {h1};
+    printf ("Ingrese cantidad de centrales de tipo:\n");
+    while (num_centrales < 0){
+        printf ("H1: "); scanf ("%d", &cantidad_h1);
+        printf ("H2: "); scanf ("%d", &cantidad_h2);
+        printf ("H3: "); scanf ("%d", &cantidad_h3);
 
-    int num_centrales = (centrales != NULL) ? sizeof(centrales) / sizeof(centrales[0]) : 0;
+        num_centrales = cantidad_h1 + cantidad_h2 + cantidad_h3;
+
+        if(num_centrales < 0)
+            printf ("La cantidad de centrales ingresada no es válida. Intentelo otra vez\n");
+        else
+            printf ("Cantidad total de centrales: %d\n", num_centrales);
+    }
+
+    struct Central centrales[num_centrales];
+    for (int i = 0; i < num_centrales; i++){
+        if (i < cantidad_h1)
+            centrales [i] = crear_central_tipo (1, i+1);
+        else if (i < cantidad_h1 + cantidad_h2)
+            centrales [i] = crear_central_tipo (2, i+1);
+        else
+            centrales [i] = crear_central_tipo (3, i+1);
+    }
+    
+    if (num_centrales == 0){
+        printf ("\e[1mNo hay centrales eléctricas para producir energía...\e[m\n");return 0;
+    }
     hidroelectrica = crear_hidroelectrica (centrales, num_centrales);
-
     iniciar_sistema_electrico ();
 
     return 0;

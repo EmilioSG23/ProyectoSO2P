@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include "lluvia.h"
 
-struct Central{ 
+struct Central{
+    int id;
     int tipo;           //Tipo H1 (1), H2 (2), H3 (3)
     int cota_minima;    //Metros (m)
     int cota_maxima;    //Metros (m)
@@ -17,8 +18,8 @@ struct Central{
     struct Lluvia lluvia;       //Lluvia que cae, solo puede ser aguacero o diluvio
 };
 
-struct Central crear_central (int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion);
-struct Central crear_central_tipo (int tipo);
+struct Central crear_central (int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion, int id);
+struct Central crear_central_tipo (int tipo, int id);
 void info_central_creacion (struct Central central);
 void info_central (struct Central* central);
 

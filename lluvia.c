@@ -18,7 +18,7 @@ struct Lluvia iniciar_lluvia_modo (int modo){
     else if (modo == 2) //Diluvio
         lluvia = iniciar_lluvia (2, 5, 4);
     else                //No lluvia
-        lluvia = iniciar_lluvia (0, 0, 0);
+        lluvia = iniciar_lluvia (0, 5, 0);
     return lluvia;
 }
 

@@ -3,7 +3,7 @@
 #include <printf.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include <time.h>
+#include <unistd.h>
 
 #include "central.h"
 #include "lluvia.h"
@@ -25,6 +25,13 @@ typedef struct Hidroelectrica{
 Hidroelectrica hidroelectrica;
 struct Lluvia lluvias[3];
 pthread_mutex_t generacion_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+//Headers
+void reanudar_central (struct Central* central);
+void suspender_central (struct Central* central);
+void generar_electricidad (struct Central* central);
+void iniciar_lluvia_central (struct Central* central);
+
 
 Hidroelectrica crear_hidroelectrica (struct Central* centrales, int num_centrales){
     Hidroelectrica hidroelectrica;
@@ -56,90 +63,66 @@ void* iniciarCentral (void* central_ptr){
     struct Central* central = (struct Central*) central_ptr;
     central->activado = true;
     central->lluvia = lluvias [0];
-    while (1) {
-        pthread_mutex_lock (&generacion_mutex);
+    while (!hidroelectrica.colapsado) {
+        info_central (central);
         if (central -> activado){
-            
-            generarElectricidad (central);
-            
-        }else{
-            if (central->cantidad_embalse >= central->cota_minima)
-                reanudarCentral (central);
+            pthread_mutex_lock (&generacion_mutex);
+            generar_electricidad (central);
+            pthread_mutex_unlock (&generacion_mutex);
         }
-        pthread_mutex_unlock (&generacion_mutex);
-        //info_central (central);
-        iniciarLluviaCentral (central);
-        if (central -> lluvia.modo != 0){
-            central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? 
-                central -> cantidad_embalse + central -> lluvia.incremento: central -> cota_maxima;
+        
+        if ((central -> activado) && (central -> cantidad_embalse < central -> cota_minima))
+            suspender_central (central);
 
-            central -> duracion_lluvia++ ;
-            if (central -> duracion_lluvia == central -> lluvia.duracion){
-                central -> duracion_lluvia = 0;
-                central -> lluvia = lluvias [0];
-            }
+        if (!(central -> activado) && (central->cantidad_embalse >= central->cota_minima))
+            reanudar_central (central);
+
+        iniciar_lluvia_central (central);
+        central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? 
+            central -> cantidad_embalse + central -> lluvia.incremento: central -> cota_maxima;
+        central -> duracion_lluvia++ ;
+        if (central -> duracion_lluvia == central -> lluvia.duracion){
+            iniciar_lluvia_central (central);
         }
         sleep(1);
     }
 }
 
-void iniciarLluviaCentral (struct Central* central){
+void iniciar_lluvia_central (struct Central* central){
     struct Lluvia lluvia = seleccionar_lluvia();
-    if (lluvia.modo != 0)
-        central->lluvia = lluvia;
+    central -> duracion_lluvia = 0;
+    central -> lluvia = lluvia;
 }
 
-void reanudarCentral (struct Central* central){
-    printf ("\e[1m\x1b[32m¡La central de tipo %d ha sido reanudado!\x1b[0m\e[m\n", central->tipo);
+void reanudar_central (struct Central* central){
     central->activado = true;
+    printf ("\e[1m\x1b[32m¡La central de tipo %d ha sido reanudado!\x1b[0m\e[m\n", central->tipo);
 }
-void suspenderCentral (struct Central* central){
+void suspender_central (struct Central* central){
     central -> activado = false;
     printf ("\e[1m\x1b[31m¡La central de tipo %d ha sido suspendido!\x1b[0m\e[m\n", central -> tipo);
 }
 
-void generarElectricidad (struct Central* central){
+void generar_electricidad (struct Central* central){
     hidroelectrica.generacion_total += central -> generacion;
     //if (hidroelectrica.generacion_total + central -> generacion < MAX_PRODUCCION)
-        
+
     central -> cantidad_embalse -= DECREMENTO_COTA;
-    if (hidroelectrica.generacion_total >= MAX_PRODUCCION ||
-        central -> cantidad_embalse <= central -> cota_minima || central -> cantidad_embalse > central -> cota_maxima){
-        suspenderCentral (central);
-    }
 }
 
-void* sistema_electrico (){
-    while(1){
-        for (int i = 0; i < hidroelectrica.num_centrales; i++)
-            info_central_s (hidroelectrica.centrales[i]);
-
-        pthread_mutex_lock (&generacion_mutex);
-        printf ("\e[1m\x1b[34mElectricidad producida: %d MW\x1b[0m\e[m\n\n", hidroelectrica.generacion_total);
-        pthread_mutex_unlock (&generacion_mutex);
-        
-        if(hidroelectrica.generacion_total >= MIN_PRODUCCION && hidroelectrica.generacion_total <= MAX_PRODUCCION){
-            if (!hidroelectrica.inicio_generado)
-                hidroelectrica.inicio_generado = true;
-            hidroelectrica.generacion_total -= CONSUMO_ELECTRICIDAD;
-        }
-        else if(!hidroelectrica.colapsado && hidroelectrica.inicio_generado){
-            printf ("\e[1m\x1b[31m¡El sistema eléctrico COLAPSÓ, causando así un APAGÓN!\x1b[0m\e[m\n");
-            printf ("\e[1mSe debe reanudar el sistema\e[m\n");
-            hidroelectrica.colapsado = true;
-            return 0;
-        }
-        
-        sleep(1);
-    }
+void consumir_electricidad () {
+    if (!hidroelectrica.inicio_generado)    hidroelectrica.inicio_generado = true;
+    hidroelectrica.generacion_total -= CONSUMO_ELECTRICIDAD;
 }
 
-void iniciarSistemaElectrico (){
+void controlarCentrales () {
+
+}
+
+void iniciar_sistema_electrico (){
     lluvias [0] = iniciar_lluvia_modo (0); lluvias [1] = iniciar_lluvia_modo (1); lluvias [2] = iniciar_lluvia_modo (2);
-
-    pthread_t sistema;
+    
     pthread_t centrales_hilos [hidroelectrica.num_centrales];
-
     //Iniciar centrales y generación
     for (int i = 0; i < hidroelectrica.num_centrales; i++){
         hidroelectrica.centrales[i].activado = true;
@@ -147,16 +130,32 @@ void iniciarSistemaElectrico (){
         pthread_create (&centrales_hilos[i], NULL, iniciarCentral, &hidroelectrica.centrales[i]);
     }
 
-    usleep(500);
-    pthread_create (&sistema, NULL, sistema_electrico, NULL);
-
     //for (int i = 0; i < hidroelectrica.num_centrales; i++)
     //    pthread_join (centrales_hilos[i], NULL);
-    
-    pthread_join (sistema, NULL);
+
+    while(!hidroelectrica.colapsado){
+        usleep (500);
+        //for (int i = 0; i < hidroelectrica.num_centrales; i++)
+          //  info_central_s (hidroelectrica.centrales[i]);
+        printf ("\e[1m\x1b[34mElectricidad producida: %d MW\x1b[0m\e[m\n", hidroelectrica.generacion_total);
+        
+        if(hidroelectrica.generacion_total >= MIN_PRODUCCION){
+            pthread_mutex_lock (&generacion_mutex);
+            consumir_electricidad();
+            pthread_mutex_unlock (&generacion_mutex);
+        }else if(!hidroelectrica.colapsado && hidroelectrica.inicio_generado){
+            printf ("\e[1m\x1b[31m¡El sistema eléctrico COLAPSÓ, causando así un APAGÓN!\x1b[0m\e[m\n");
+            printf ("\e[1mSe debe reanudar el sistema\e[m\n");
+            hidroelectrica.colapsado = true;
+            break;
+        }
+        controlarCentrales();
+        sleep(1);
+    }
 
     for (int i = 0; i < hidroelectrica.num_centrales; i++)
         pthread_cancel (centrales_hilos[i]);
+
 }
 
 int main () {
@@ -170,7 +169,7 @@ int main () {
     int num_centrales = (centrales != NULL) ? sizeof(centrales) / sizeof(centrales[0]) : 0;
     hidroelectrica = crear_hidroelectrica (centrales, num_centrales);
 
-    iniciarSistemaElectrico ();
+    iniciar_sistema_electrico ();
 
     return 0;
 }

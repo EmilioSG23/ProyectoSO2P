@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <semaphore.h>
 
 #include "sistema_electrico.h"
 #include "central.h"
@@ -21,7 +22,7 @@ pthread_mutex_t generacion_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int turnos_finalizados = 0;
 pthread_mutex_t mutex_turnos_finalizados = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond_turnos_finalizados = PTHREAD_COND_INITIALIZER;
+sem_t sem_turnos_finalizados;
 
 //Headers
 void reanudar_central (struct Central* central);
@@ -74,10 +75,11 @@ void* iniciar_central (void* central_ptr){
     iniciar_lluvia_central (central);
 
     while (!sistema_electrico.colapsado) {
+        //Se suspende central, si no hay suficiente agua
         if ((central -> activado) && (central -> cantidad_embalse < central -> cota_minima))
             suspender_central (central);
-
-        if (!(central -> activado) && (central->cantidad_embalse >= central->cota_minima))
+        //Se reanuda central si hay suficiente agua
+        if (!(central -> activado) && (central->cantidad_embalse >= (central -> cota_minima + central -> cota_maxima)*0.40))
             reanudar_central (central);
 
         info_central (central);
@@ -87,19 +89,15 @@ void* iniciar_central (void* central_ptr){
             generar_electricidad (central);
             pthread_mutex_unlock (&generacion_mutex);
         }
-
-        central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? 
-            central -> cantidad_embalse + central -> lluvia.incremento: central -> cota_maxima;
-        central -> duracion_lluvia ++ ;
-        if (central -> duracion_lluvia >= central -> lluvia.duracion){
-            iniciar_lluvia_central (central);
-        }
-
         // Indicación de turno finalizado al sistema eléctrico
-        pthread_mutex_lock(&mutex_turnos_finalizados);
-        turnos_finalizados++;
-        pthread_cond_signal(&cond_turnos_finalizados);
-        pthread_mutex_unlock(&mutex_turnos_finalizados);
+        sem_post(&sem_turnos_finalizados);
+        
+
+        //Lluvia cayendo en la central
+        central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? central -> cantidad_embalse + central -> lluvia.incremento: central -> cota_maxima;
+        central -> duracion_lluvia ++ ;
+        if (central -> duracion_lluvia >= central -> lluvia.duracion)
+            iniciar_lluvia_central (central);
 
         sleep(1);
     }
@@ -111,6 +109,7 @@ void iniciar_sistema_electrico (double probabilidades_lluvia [3]){
     lluvias [2] = iniciar_lluvia_modo (2, probabilidades_lluvia [2]);
 
     pthread_t centrales_hilos [sistema_electrico.num_centrales];
+    sem_init (&sem_turnos_finalizados, 0, 0);
     
     int tiempo = 0;
     srand(time(NULL));
@@ -123,11 +122,8 @@ void iniciar_sistema_electrico (double probabilidades_lluvia [3]){
 
     while(!sistema_electrico.colapsado){ 
         //Esperar a que los turnos de las centrales terminen
-        pthread_mutex_lock(&mutex_turnos_finalizados);
-        while (turnos_finalizados < sistema_electrico.num_centrales)
-            pthread_cond_wait(&cond_turnos_finalizados, &mutex_turnos_finalizados);
-        turnos_finalizados = 0;
-        pthread_mutex_unlock(&mutex_turnos_finalizados);
+        for (int i = 0; i < sistema_electrico.num_centrales; i++)
+            sem_wait (&sem_turnos_finalizados);
 
         pthread_mutex_lock (&generacion_mutex);
         printf ("\e[1m\x1b[34mElectricidad producida: %d MW, tiempo transcurrido: %d segundos.\x1b[0m\e[m\n\n", sistema_electrico.generacion_total, tiempo++);

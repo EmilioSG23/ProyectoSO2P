@@ -1,6 +1,6 @@
 NAME = apagon
 DEPS = central.h
-OBJECTS = central.o lluvia.o
+OBJECTS = central.o lluvia.o sistema_electrico.o
 
 $(NAME): $(NAME).o $(OBJECTS) $(DEPS)
 	gcc -o $@ $(NAME).o $(OBJECTS) -lpthread

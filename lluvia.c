@@ -3,24 +3,20 @@
 
 #include "lluvia.h"
 
-struct Lluvia iniciar_lluvia (int modo, int duracion, int incremento, double probabilidad){
-    struct Lluvia lluvia;
-    lluvia.modo = modo;
-    lluvia.duracion = duracion;
-    lluvia.incremento = incremento;
-    lluvia.probabilidad = probabilidad * 100;
-    return lluvia;
+void iniciar_lluvia (struct Lluvia* lluvia, int modo, int duracion, int incremento, double probabilidad){
+    lluvia->modo = modo;
+    lluvia->duracion = duracion;
+    lluvia->incremento = incremento;
+    lluvia->probabilidad = probabilidad * 100;
 }
 
-struct Lluvia iniciar_lluvia_modo (int modo, double probabilidad){
-    struct Lluvia lluvia;
+void iniciar_lluvia_modo (struct Lluvia* lluvia, int modo, double probabilidad){
     if (modo == 1)      //Aguacero
-        lluvia = iniciar_lluvia (1, 10, 2, probabilidad);
+        iniciar_lluvia (lluvia, 1, 10, 2, probabilidad);
     else if (modo == 2) //Diluvio
-        lluvia = iniciar_lluvia (2, 5, 4, probabilidad);
+        iniciar_lluvia (lluvia, 2, 5, 4, probabilidad);
     else                //No lluvia
-        lluvia = iniciar_lluvia (0, 5, 0, probabilidad);
-    return lluvia;
+        iniciar_lluvia (lluvia, 0, 5, 0, probabilidad);
 }
 
 void info_lluvia (struct Lluvia lluvia){

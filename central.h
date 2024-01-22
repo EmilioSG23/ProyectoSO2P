@@ -16,13 +16,13 @@ struct Central{
     bool activado;
     int duracion_lluvia;
     int cantidad_embalse;    //Cantidad de embalse actual
-    struct Lluvia lluvia;       //Lluvia que cae, solo puede ser aguacero o diluvio
+    struct Lluvia* lluvia;       //Lluvia que cae, solo puede ser aguacero o diluvio
 
     sem_t sem_central;
 };
 
-struct Central crear_central (int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion, int id);
-struct Central crear_central_tipo (int tipo, int id);
+void crear_central (struct Central* central, int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion, int id);
+void crear_central_tipo (struct Central* central, int tipo, int id);
 void info_central_creacion (struct Central central);
 void info_central (struct Central* central);
 

@@ -4,14 +4,11 @@
 
 #include "sistema_electrico.h"
 
-SistemaElectrico crear_sistema_electrico (struct Central* centrales, int num_centrales){
-    SistemaElectrico sistema_electrico;
-    sistema_electrico.centrales = centrales;
-    sistema_electrico.num_centrales = num_centrales;
-    sistema_electrico.generacion_total = 0;
-    sistema_electrico.generacion_actual = 0;
-    sistema_electrico.generacion_maxima = 0;
-    sistema_electrico.colapsado = false;
-    sistema_electrico.inicio_generado = false;
-    return sistema_electrico;
+void crear_sistema_electrico (SistemaElectrico* sistema_electrico, struct Central* centrales, int num_centrales){
+    sistema_electrico->centrales = centrales;
+    sistema_electrico->num_centrales = num_centrales;
+    sistema_electrico->generacion_total = 0;
+    sistema_electrico->generacion_actual = 0;
+    sistema_electrico->colapsado = false;
+    sistema_electrico->inicio_generado = false;
 }

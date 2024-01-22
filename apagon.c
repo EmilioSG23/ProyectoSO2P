@@ -32,7 +32,7 @@ void iniciar_lluvia_central (struct Central* central);
 void gestionar_centrales ();
 
 
-struct Lluvia seleccionar_lluvia (){
+void seleccionar_lluvia (struct Central* central){
     int rng = (rand() % 100);
 
     int prob_no_lluvia = lluvias[0].probabilidad;
@@ -40,17 +40,16 @@ struct Lluvia seleccionar_lluvia (){
     int prob_diluvio = lluvias[2].probabilidad;
 
     if (rng <= (prob_no_lluvia))
-        return lluvias [0];
+        central -> lluvia = &lluvias [0];
     else if (rng > prob_no_lluvia && rng <= ((prob_no_lluvia+prob_aguacero)))
-        return lluvias [1];
+        central -> lluvia = &lluvias [1];
     else
-        return lluvias [2];
+        central -> lluvia = &lluvias [2];
 }
 
 void iniciar_lluvia_central (struct Central* central){
-    struct Lluvia lluvia = seleccionar_lluvia();
+    seleccionar_lluvia(central);
     central -> duracion_lluvia = 0;
-    central -> lluvia = lluvia;
 }
 
 void reanudar_central (struct Central* central){
@@ -91,9 +90,9 @@ void* iniciar_central (void* central_ptr){
         sem_post(&sem_turnos_finalizados);
         
         //Lluvia cayendo en la central
-        central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? central -> cantidad_embalse + central -> lluvia.incremento: central -> cota_maxima;
+        central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? central -> cantidad_embalse + central -> lluvia -> incremento: central -> cota_maxima;
         central -> duracion_lluvia ++ ;
-        if (central -> duracion_lluvia >= central -> lluvia.duracion)
+        if (central -> duracion_lluvia >= central -> lluvia -> duracion)
             iniciar_lluvia_central (central);
 
         sleep(1);
@@ -101,9 +100,9 @@ void* iniciar_central (void* central_ptr){
 }
 
 void iniciar_sistema_electrico (double probabilidades_lluvia [3]){
-    lluvias [0] = iniciar_lluvia_modo (0, probabilidades_lluvia [0]);
-    lluvias [1] = iniciar_lluvia_modo (1, probabilidades_lluvia [1]);
-    lluvias [2] = iniciar_lluvia_modo (2, probabilidades_lluvia [2]);
+    iniciar_lluvia_modo (&lluvias [0], 0, probabilidades_lluvia [0]);
+    iniciar_lluvia_modo (&lluvias [1], 1, probabilidades_lluvia [1]);
+    iniciar_lluvia_modo (&lluvias [2], 2, probabilidades_lluvia [2]);
 
     pthread_t centrales_hilos [sistema_electrico.num_centrales];
     sem_init (&sem_turnos_finalizados, 0, 0);
@@ -149,7 +148,7 @@ void iniciar_sistema_electrico (double probabilidades_lluvia [3]){
     }
 
     for (int i = 0; i < sistema_electrico.num_centrales; i++)
-        pthread_cancel (centrales_hilos[i]);
+        pthread_join (centrales_hilos[i], NULL);
 }
 
 void gestionar_centrales () {
@@ -192,11 +191,11 @@ int main () {
     struct Central centrales[num_centrales];
     for (int i = 0; i < num_centrales; i++){
         if (i < cantidad_h1)
-            centrales [i] = crear_central_tipo (1, i+1);
+            crear_central_tipo (&centrales [i], 1, i+1);
         else if (i < cantidad_h1 + cantidad_h2)
-            centrales [i] = crear_central_tipo (2, i+1);
+            crear_central_tipo (&centrales [i], 2, i+1);
         else
-            centrales [i] = crear_central_tipo (3, i+1);
+            crear_central_tipo (&centrales [i], 3, i+1);
     }
     
     if (num_centrales == 0){
@@ -225,7 +224,7 @@ int main () {
     }
     printf("\n");
 
-    sistema_electrico = crear_sistema_electrico (centrales, num_centrales);
+    crear_sistema_electrico (&sistema_electrico, centrales, num_centrales);
     iniciar_sistema_electrico (probabilidades_lluvia);
 
     return 0;

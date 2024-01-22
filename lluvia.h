@@ -8,8 +8,8 @@ struct Lluvia{
     int probabilidad;
 };
 
-struct Lluvia iniciar_lluvia (int modo, int duracion, int incremento, double probabilidad);
-struct Lluvia iniciar_lluvia_modo (int modo, double probabilidad);
+void iniciar_lluvia (struct Lluvia* lluvia, int modo, int duracion, int incremento, double probabilidad);
+void iniciar_lluvia_modo (struct Lluvia* lluvia, int modo, double probabilidad);
 void info_lluvia (struct Lluvia lluvia);
 
 #endif

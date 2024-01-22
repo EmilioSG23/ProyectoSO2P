@@ -6,11 +6,10 @@ typedef struct SistemaElectrico{
     int num_centrales;
     int generacion_total;
     int generacion_actual;
-    int generacion_maxima;
     bool colapsado;
     bool inicio_generado;
 }SistemaElectrico;
 
-SistemaElectrico crear_sistema_electrico (struct Central* centrales, int num_centrales);
+void crear_sistema_electrico (SistemaElectrico* sistema_electrico, struct Central* centrales, int num_centrales);
 
 #endif

@@ -54,11 +54,13 @@ void iniciar_lluvia_central (struct Central* central){
 }
 
 void reanudar_central (struct Central* central){
-    central->activado = true;
-    printf ("\e[1m\x1b[32m¡La central #%d de tipo %d ha sido reanudado!\x1b[0m\e[m\n", central -> id, central->tipo);
+    central -> activado = true;
+    sistema_electrico.generacion_actual += central -> generacion;
+    printf ("\e[1m\x1b[32m¡La central #%d de tipo %d ha sido reanudado!\x1b[0m\e[m\n", central -> id, central -> tipo);
 }
 void suspender_central (struct Central* central){
     central -> activado = false;
+    sistema_electrico.generacion_actual -= central -> generacion;
     printf ("\e[1m\x1b[31m¡La central #%d de tipo %d ha sido suspendido!\x1b[0m\e[m\n", central -> id, central -> tipo);
 }
 
@@ -72,16 +74,12 @@ void generar_electricidad (struct Central* central){
 void* iniciar_central (void* central_ptr){
     struct Central* central = (struct Central*) central_ptr;
     central->activado = true;
+    sistema_electrico.generacion_actual += central -> generacion;
     iniciar_lluvia_central (central);
+    sem_post (&central->sem_central);
 
     while (!sistema_electrico.colapsado) {
-        //Se suspende central, si no hay suficiente agua
-        if ((central -> activado) && (central -> cantidad_embalse < central -> cota_minima))
-            suspender_central (central);
-        //Se reanuda central si hay suficiente agua
-        if (!(central -> activado) && (central->cantidad_embalse >= (central -> cota_minima + central -> cota_maxima)*0.40))
-            reanudar_central (central);
-
+        sem_wait (&central->sem_central);
         info_central (central);
 
         if (central -> activado){
@@ -92,7 +90,6 @@ void* iniciar_central (void* central_ptr){
         // Indicación de turno finalizado al sistema eléctrico
         sem_post(&sem_turnos_finalizados);
         
-
         //Lluvia cayendo en la central
         central -> cantidad_embalse = central -> cantidad_embalse < central -> cota_maxima ? central -> cantidad_embalse + central -> lluvia.incremento: central -> cota_maxima;
         central -> duracion_lluvia ++ ;
@@ -116,7 +113,7 @@ void iniciar_sistema_electrico (double probabilidades_lluvia [3]){
 
     //Iniciar centrales y generación
     for (int i = 0; i < sistema_electrico.num_centrales; i++){
-        printf ("\e[1m\x1b[36m¡La central #%d de tipo %d ha iniciado a generar electricidad!\x1b[0m\e[m\n", sistema_electrico.centrales[i].id, sistema_electrico.centrales[i].tipo);
+        //printf ("\e[1m\x1b[36m¡La central #%d de tipo %d ha iniciado a generar electricidad!\x1b[0m\e[m\n", sistema_electrico.centrales[i].id, sistema_electrico.centrales[i].tipo);
         pthread_create (&centrales_hilos[i], NULL, iniciar_central, &sistema_electrico.centrales[i]);
     }
 
@@ -126,10 +123,11 @@ void iniciar_sistema_electrico (double probabilidades_lluvia [3]){
             sem_wait (&sem_turnos_finalizados);
 
         pthread_mutex_lock (&generacion_mutex);
-        printf ("\e[1m\x1b[34mElectricidad producida: %d MW, tiempo transcurrido: %d segundos.\x1b[0m\e[m\n\n", sistema_electrico.generacion_total, tiempo++);
+        printf ("\e[1m\x1b[34mElectricidad producida en total: %d MW, Electricidad producida: %d MW, tiempo transcurrido: %d segundos.\x1b[0m\e[m\n", sistema_electrico.generacion_total, sistema_electrico.generacion_actual, tiempo++);
+        pthread_mutex_unlock (&generacion_mutex);
         bool energia_minima = sistema_electrico.generacion_total > MIN_PRODUCCION;
         bool energia_maxima = sistema_electrico.generacion_total < MAX_PRODUCCION;
-        pthread_mutex_unlock (&generacion_mutex);
+        
         bool en_rango = energia_minima && energia_maxima;
 
         if (!sistema_electrico.inicio_generado && energia_minima)
@@ -139,7 +137,6 @@ void iniciar_sistema_electrico (double probabilidades_lluvia [3]){
             /*pthread_mutex_lock (&generacion_mutex);
             sistema_electrico.generacion_total -= CONSUMO_ELECTRICIDAD;
             pthread_mutex_unlock (&generacion_mutex);*/
-
         }else{if(!sistema_electrico.colapsado && sistema_electrico.inicio_generado){
             printf ("\e[1m\x1b[31m¡El sistema eléctrico COLAPSÓ, causando así un APAGÓN!\x1b[0m\e[m\n");
             printf ("\e[1mSe debe reanudar el sistema\e[m\n");
@@ -147,16 +144,30 @@ void iniciar_sistema_electrico (double probabilidades_lluvia [3]){
             break;
         }}
         gestionar_centrales();
+        printf ("\n");
         sleep(1);
     }
 
     for (int i = 0; i < sistema_electrico.num_centrales; i++)
         pthread_cancel (centrales_hilos[i]);
-
 }
 
 void gestionar_centrales () {
-
+    for (int i = 0; i < sistema_electrico.num_centrales; i++){
+        struct Central* central = &sistema_electrico.centrales [i];
+        if (central -> activado){
+            //Se suspende central, si no hay suficiente agua o si la generación próxima será mayor a MAX_PRODUCCION
+            if (central -> cantidad_embalse < central -> cota_minima || sistema_electrico.generacion_total + sistema_electrico.generacion_actual >= MAX_PRODUCCION)
+                suspender_central (central);
+        }else{
+            //Se reanuda central si hay suficiente agua
+            if (central -> cantidad_embalse >= (central -> cota_minima + central -> cota_maxima)*0.40 
+                && !(sistema_electrico.generacion_total+ sistema_electrico.generacion_actual + central -> generacion >= MAX_PRODUCCION))
+                reanudar_central (central);
+        }
+        //printf ("Activado? %s\n", central -> activado ? "Si" : "No");
+        sem_post (&sistema_electrico.centrales[i].sem_central);
+    }
 }
 
 int main () {

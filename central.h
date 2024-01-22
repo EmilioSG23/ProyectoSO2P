@@ -2,6 +2,7 @@
 #define CENTRAL_H
 
 #include <stdbool.h>
+#include <semaphore.h>
 #include "lluvia.h"
 
 struct Central{
@@ -16,6 +17,8 @@ struct Central{
     int duracion_lluvia;
     int cantidad_embalse;    //Cantidad de embalse actual
     struct Lluvia lluvia;       //Lluvia que cae, solo puede ser aguacero o diluvio
+
+    sem_t sem_central;
 };
 
 struct Central crear_central (int tipo, int cota_minima, int cota_maxima, int cantidad_embalse, int generacion, int id);
